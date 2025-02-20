@@ -16,5 +16,9 @@
     "express": "^4.21.1",
     "pg": "^8.13.1",
     "postgres": "^3.4.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "supertest": "^7.0.0"
   }
 }
