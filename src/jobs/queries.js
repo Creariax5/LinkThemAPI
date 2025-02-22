@@ -1,3 +1,4 @@
+// create job
 const insertCompany = `
     INSERT INTO companies (name, company_size, linkedin_followers, logo_url)
     VALUES ($1, $2, $3, $4)
@@ -52,7 +53,54 @@ const insertBenefit = `
     INSERT INTO benefits (job_id, benefit_text)
     VALUES ($1, $2)`;
 
+
+// get Jobs
+const getJobs = `
+    SELECT 
+        j.job_id,
+        j.title,
+        j.location,
+        j.posted_time,
+        j.applicants_count,
+        j.workplace_type,
+        j.extracted_timestamp,
+        j.source_url,
+        j.full_description,
+        c.name as company_name,
+        c.company_size,
+        c.linkedin_followers,
+        c.logo_url,
+        ARRAY_AGG(DISTINCT r.responsibility_text) as responsibilities,
+        ARRAY_AGG(DISTINCT t.name) as technologies,
+        ARRAY_AGG(DISTINCT s.name) as skills,
+        ARRAY_AGG(DISTINCT b.benefit_text) as benefits
+    FROM jobs j
+    LEFT JOIN companies c ON j.company_id = c.company_id
+    LEFT JOIN job_responsibilities r ON j.job_id = r.job_id
+    LEFT JOIN job_technologies jt ON j.job_id = jt.job_id
+    LEFT JOIN technologies t ON jt.technology_id = t.technology_id
+    LEFT JOIN job_skills js ON j.job_id = js.job_id
+    LEFT JOIN skills s ON js.skill_id = s.skill_id
+    LEFT JOIN benefits b ON j.job_id = b.job_id
+    GROUP BY 
+        j.job_id,
+        j.title,
+        j.location,
+        j.posted_time,
+        j.applicants_count,
+        j.workplace_type,
+        j.extracted_timestamp,
+        j.source_url,
+        j.full_description,
+        c.name,
+        c.company_size,
+        c.linkedin_followers,
+        c.logo_url
+    ORDER BY j.extracted_timestamp DESC
+    LIMIT $1 OFFSET $2`;
+
 module.exports = {
+    // create job
     insertCompany,
     insertJob,
     insertResponsibility,
@@ -60,5 +108,7 @@ module.exports = {
     insertJobTechnology,
     insertSkill,
     insertJobSkill,
-    insertBenefit
+    insertBenefit,
+    // get Jobs
+    getJobs
 };

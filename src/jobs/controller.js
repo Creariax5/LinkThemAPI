@@ -1,6 +1,6 @@
-const pool = require('../db');
+const pool = require('../../db');
 const queries = require('./queries');
-const { sanitizeJobData } = require('../utils/dataValidator');
+const { sanitizeJobData } = require('../../utils/dataValidator');
 
 const createJobPosting = async (req, res) => {
     const client = await pool.connect();
@@ -85,37 +85,66 @@ const createJobPosting = async (req, res) => {
     }
 };
 
-const testApi = (req, res) => {
-    res.status(200).json({
-        status: 'success',
-        message: 'API is working correctly',
-        timestamp: new Date().toISOString()
-    });
-};
-
-const testDbConnection = async (req, res) => {
+const getJobListings = async (req, res) => {
     const client = await pool.connect();
-    
     try {
-        // Try to execute a simple query
-        const result = await client.query('SELECT NOW()');
-        
+        // Parse pagination parameters
+        const limit = parseInt(req.query.limit) || 10;
+        const page = parseInt(req.query.page) || 1;
+        const offset = (page - 1) * limit;
+
+        // Execute query with pagination
+        const result = await client.query(queries.getJobs, [limit, offset]);
+
+        // Transform the raw data into a more structured format
+        const jobs = result.rows.map(row => ({
+            jobId: row.job_id,
+            basicInfo: {
+                title: row.title,
+                company: row.company_name,
+                location: row.location,
+                postedTime: row.posted_time,
+                applicants: row.applicants_count,
+                workplaceType: row.workplace_type
+            },
+            companyInfo: {
+                size: row.company_size,
+                linkedInFollowers: row.linkedin_followers,
+                logo: row.logo_url
+            },
+            jobDescription: {
+                responsibilities: row.responsibilities.filter(r => r !== null),
+                technologies: row.technologies.filter(t => t !== null)
+            },
+            skillsAndRequirements: {
+                matched: row.skills.filter(s => s !== null)
+            },
+            benefitsAndPerks: row.benefits.filter(b => b !== null),
+            metadata: {
+                extracted_timestamp: row.extracted_timestamp,
+                source_url: row.source_url
+            },
+            fullDescription: row.full_description
+        }));
+
         res.status(200).json({
             status: 'success',
-            message: 'Database connection successful',
-            timestamp: result.rows[0].now,
-            database: {
-                host: process.env.DATABASE_URL ? 'Connected via URL' : 'Connected via local config',
-                ssl: pool.options.ssl ? 'Enabled' : 'Disabled'
+            data: {
+                jobs,
+                pagination: {
+                    page,
+                    limit,
+                    total: result.rowCount // Note: This is just the current page count
+                }
             }
         });
 
     } catch (error) {
-        console.error('Database connection error:', error);
+        console.error('Error fetching jobs:', error);
         res.status(500).json({
             status: 'error',
-            message: 'Database connection failed',
-            error: error.message
+            message: 'Error fetching job listings',
+            details: error.message
         });
 
     } finally {
@@ -125,6 +154,5 @@ const testDbConnection = async (req, res) => {
 
 module.exports = {
     createJobPosting,
-    testApi,
-    testDbConnection
+    getJobListings
 };
